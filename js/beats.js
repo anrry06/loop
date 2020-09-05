@@ -66,12 +66,6 @@ class ReplayBlock {
         this.edit = this.el.querySelector('.edit');
         this.stop = this.el.querySelector('.stop');
         this.range = this.el.querySelector('.range');
-        this.wave = this.el.querySelector('.wave');
-        this.wavesurfer = WaveSurfer.create({
-            container: this.wave,
-            waveColor: 'violet',
-            progressColor: 'purple'
-        });
     }
 
     initEvents(){
@@ -192,7 +186,6 @@ class ReplayBlock {
         Beats.mic.stopRecording((blob) => {
             utils.getBlobDuration(blob).then(function (duration) {
                 that.debug('duration', duration + ' seconds');
-                that.wavesurfer.loadBlob(blob);
                 var sound = new Pizzicato.Sound(
                     {
                         source: 'file',
@@ -214,10 +207,6 @@ class ReplayBlock {
         let sound = this.sounds[this.sounds.length - 1];
         sound.volume = 1;
         sound.play();
-        this.wavesurfer.toggleMute();
-        this.wavesurfer.on('ready', () => this.wavesurfer.play());
-        this.wavesurfer.on('finish', () => this.wavesurfer.play());
-        this.debug(this.wavesurfer.getMute(), this.wavesurfer.isPlaying());
         this.recordDiff = (new Date()).getTime() - this.recordStop;
         this.debug('recordDiff', this.recordDiff);
     }
@@ -247,7 +236,6 @@ class ReplayBlock {
             <div class="card" id="replay-block-${this.options.id}">
                 <h5 class="card-header">Replay block ${this.options.id}</h5>
                 <div class="card-body">
-                    <div class="wave" id="waveform"></div>
                     <h5 class="card-title state">state: standby</h5>                 
                     <button type="button" class="btn btn-dark btn-lg btn-block edit">
                         <i class="fas fa-pen"></i>
