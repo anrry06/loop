@@ -1,6 +1,6 @@
 'use strict';
 
-const Beats = {
+const Loops = {
     options: {
         parent: null,
     },
@@ -10,21 +10,21 @@ const Beats = {
     init: function (options) {
         options = options || {};
 
-        Beats.options = Object.assign(Beats.options, options);
-        Beats.options.parent.innerHTML += Beats.getHtml();
-        Beats.mic = new Mic().initFeedback();
+        Loops.options = Object.assign(Loops.options, options);
+        Loops.options.parent.innerHTML += Loops.getHtml();
+        Loops.mic = new Mic().initFeedback();
 
         [0, 1, 2].forEach((i) => {
             let rp =  new ReplayBlock({
                 id: i,
                 parent: document.querySelector('#replay-block-col' + i),
             });
-            Beats.replayBlocks.push(rp);
+            Loops.replayBlocks.push(rp);
         });
     },
     getHtml: function () {
         return `
-            <div class="container" id="beats">
+            <div class="container" id="loops">
                 <div class="row"></div>
                 <div class="row" id="replay-blocks">
                     <div class="col-sm" id="replay-block-col0">
@@ -177,13 +177,13 @@ class ReplayBlock {
     startRecording(){
         this.debug('startRecording');
         let that = this;
-        Beats.mic.record();
+        Loops.mic.record();
     }
 
     stopRecording(next){
         let that = this;
         this.debug('stopRecording');
-        Beats.mic.stopRecording((blob) => {
+        Loops.mic.stopRecording((blob) => {
             utils.getBlobDuration(blob).then(function (duration) {
                 that.debug('duration', duration + ' seconds');
                 var sound = new Pizzicato.Sound(
