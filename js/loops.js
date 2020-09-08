@@ -3,6 +3,7 @@
 const Loops = {
     options: {
         parent: null,
+        replaysCount: 3
     },
     replayBlocks: [],
     mic: null,
@@ -14,25 +15,26 @@ const Loops = {
         Loops.options.parent.innerHTML += Loops.getHtml();
         Loops.mic = new Mic().initFeedback();
 
-        [0, 1, 2].forEach((i) => {
+        for(let i = 0; i < Loops.options.replaysCount; i++){
             let rp =  new ReplayBlock({
                 id: i,
                 parent: document.querySelector('#replay-block-col' + i),
             });
             Loops.replayBlocks.push(rp);
-        });
+        }
     },
+
     getHtml: function () {
+        let replayBlocks = '';
+        for(let i = 0; i < Loops.options.replaysCount; i++){
+            replayBlocks += `<div class="col-sm" id="replay-block-col${i}"></div>`;
+        }
+
         return `
             <div class="container" id="loops">
-                <div class="row"></div>
+                <div class="row edit-container"></div>
                 <div class="row" id="replay-blocks">
-                    <div class="col-sm" id="replay-block-col0">
-                    </div>
-                    <div class="col-sm" id="replay-block-col1">
-                    </div>
-                    <div class="col-sm" id="replay-block-col2">
-                    </div>
+                    ${replayBlocks}
                 </div>
             </div>
         `;
@@ -73,6 +75,7 @@ class ReplayBlock {
         this.stop.onmousedown = this.onStopMouseDown;
         this.stop.onmouseup = this.onStopMouseUp;
         this.range.oninput = this.onRangeInput;
+        this.edit.onclick = this.onEditClick;
     }
 
     onPlayClick = (e) => {
@@ -117,10 +120,22 @@ class ReplayBlock {
     onRangeInput = (e) => {
         e.preventDefault();
         let mixValue = this.range.value;
-        // this.debug('mixValue', mixValue / 100);
+        this.debug('mixValue', mixValue- 50);
         this.sounds.forEach((sound) => {
-            sound.volume = mixValue / 100;
+            sound.volume.value = mixValue - 50;
         });
+    }
+
+    onEditClick = (e) => {
+        e.preventDefault();
+        this.edit.classList.toggle('btn-danger');
+        let active = this.edit.classList.contains('btn-danger');
+        if(active){
+            new EditBlock({
+                parent: document.querySelector('.edit-container'),
+                replayBlockId: this.options.id
+            });
+        }
     }
 
     computeState(){
@@ -186,18 +201,18 @@ class ReplayBlock {
         Loops.mic.stopRecording((blob) => {
             utils.getBlobDuration(blob).then(function (duration) {
                 that.debug('duration', duration + ' seconds');
-                var sound = new Pizzicato.Sound(
-                    {
-                        source: 'file',
-                        options: {
-                            path: URL.createObjectURL(blob),
-                            loop: true
-                        }
-                    },
-                    next
-                );
+
+                let sound = new Tone.Player({
+                    url: URL.createObjectURL(blob),
+                    loop: true,
+                    // autostart: true
+                    // loopStart: 0.5,
+                    // loopEnd: 0.7,
+                }).toDestination();
+                Tone.loaded().then(next);
                 that.debug('push sound', sound);
                 that.sounds.push(sound);
+                that.displaySounds();
             });
         });
     }
@@ -205,20 +220,20 @@ class ReplayBlock {
     playAudio(){
         this.debug('playAudio');
         let sound = this.sounds[this.sounds.length - 1];
-        sound.volume = 1;
-        sound.play();
+        sound.volume.value = 1;
+        sound.start();
         this.recordDiff = (new Date()).getTime() - this.recordStop;
         this.debug('recordDiff', this.recordDiff);
     }
 
     pauseAudio(){
         this.debug('pauseAudio');
-        this.sounds.forEach((sound) => sound.pause());
+        this.sounds.forEach((sound) => sound.stop());
     }
 
     unPauseAudio(){
         this.debug('unPauseAudio');
-        this.sounds.forEach((sound) => sound.play());
+        this.sounds.forEach((sound) => sound.start());
     }
 
     stopAudio(){
@@ -231,12 +246,22 @@ class ReplayBlock {
         console.log('ID: ' + this.options.id, ...args);
     }
 
+    displaySounds(){
+        let soundsList = this.el.querySelector('.sounds-list');
+        soundsList.innerHTML = '';
+        this.sounds.forEach((sound, i) => {
+            soundsList.innerHTML += `<li class="list-group-item" data-index="${i}">Sound #${i}</li>`;
+        });
+    }
+
     getHtml() {
         return `
             <div class="card" id="replay-block-${this.options.id}">
                 <h5 class="card-header">Replay block ${this.options.id}</h5>
+                <ul class="list-group list-group-flush sounds-list">
+                </ul>
                 <div class="card-body">
-                    <h5 class="card-title state">state: standby</h5>                 
+                    <h5 class="card-title state">state: standby</h5>
                     <button type="button" class="btn btn-dark btn-lg btn-block edit">
                         <i class="fas fa-pen"></i>
                     </button>
@@ -253,6 +278,102 @@ class ReplayBlock {
     }
 }
 
+class EditBlock {
+    constructor(options) {
+        options = options || {};
+
+        let defaults = {
+            parent: null,
+            replayBlockId: null
+        };
+        this.options = Object.assign(defaults, options);
+        this.options.parent.innerHTML += this.getHtml();
+
+        this.availableEffects = ['reverb'];
+
+        this.el = document.querySelector(`#edit-block`);
+
+        this.loadElements();
+        this.initEvents();
+    }
+
+    loadElements(){
+        this.effect = this.el.querySelector('.effect');
+        this.effectsList = this.el.querySelector('.effects-list');
+    }
+
+    initEvents(){
+        this.effect.onclick = this.onEffectClick;
+    }
+
+    onEffectClick = (e) => {
+        e.preventDefault();
+        let ae = this.availableEffects.map((effect) => `<button type="button" class="btn btn-dark btn-lg btn-block ${effect}">${effect.toUpperCase()}</button>`).join();
+        let html = `
+            <div class="col-sm">
+                <div class="card" id="add-effect-block">
+                    <h5 class="card-header">Add Effect Block</h5>
+                    <div class="card-body">
+                        ${ae}
+                    </div>
+                </div>
+            </div>
+        `;
+        this.options.parent.innerHTML += html;
+        this.addEffectBlock = document.querySelector('#add-effect-block');
+        this.availableEffects.forEach((effect) => {
+            this.addEffectBlock.querySelector(`.${effect}`).onclick = (e) => {
+                let html = `
+                    <div class="col-sm">
+                        <div class="card" id="${effect}-block">
+                            <h5 class="card-header">${effect.toUpperCase()} Block</h5>
+                            <div class="card-body">
+                                <button type="button" class="btn btn-dark btn-lg btn-block enable">
+                                    Enable
+                                </button>
+                                <input type="range" class="form-control-range mt-3 mb-3 range">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                this.options.parent.innerHTML += html;
+
+                Loops.replayBlocks[this.options.replayBlockId].reverb = new Tone.Reverb().toDestination();
+
+                this[effect + 'Block'] = document.querySelector(`#${effect}-block`);
+                this[effect + 'Block'].querySelector('.enable').onclick = (e) => {
+                    Loops.replayBlocks[this.options.replayBlockId].sounds.forEach((sound) =>{
+                        sound.connect(Loops.replayBlocks[this.options.replayBlockId].reverb);
+                    });
+                }
+                this[effect + 'Block'].querySelector('.range').oninput = (e) => {
+                    let mixValue = this[effect + 'Block'].querySelector('.range').value;
+                    // this.debug('mixValue', mixValue);
+                    Loops.replayBlocks[this.options.replayBlockId].reverb.set({
+                        decay: mixValue
+                    });
+                }
+            }
+        })
+    }
+
+    getHtml() {
+        return `
+            <div class="col-sm">
+                <div class="card" id="edit-block">
+                    <h5 class="card-header">Edit Block</h5>
+                    <ul class="list-group list-group-flush effects-list">
+                    </ul>
+                    <div class="card-body">
+                        <button type="button" class="btn btn-dark btn-lg btn-block effect">
+                            Add effect
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
 const utils = {
     setButtonClass(el, cls){
         let classes = ['btn-danger', 'btn-info', 'btn-warning', 'btn-success', 'btn-dark'];
